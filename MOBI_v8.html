@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AB · Gestión de Pólizas</title>
+<style>
+  :root {
+    --bg: #0f0f11; --surface: #18181c; --surface2: #222228; --border: #2e2e38;
+    --text: #e8e8f0; --muted: #7a7a90; --accent: #7c6af5; --accent2: #a78bfa;
+    --green: #22c55e; --yellow: #f59e0b; --red: #ef4444; --blue: #3b82f6;
+    --font: Verdana, Geneva, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; font-size: 13px; }
+
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { font-weight: 700; font-size: 16px; }
+  .logo span { color: var(--accent2); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .badge-alert {
+    background: var(--red); color: white; font-size: 11px; font-weight: 700;
+    padding: 3px 10px; border-radius: 20px; display: none; animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 20px; }
+  .tab {
+    padding: 11px 18px; font-size: 12px; font-weight: 600; color: var(--muted);
+    cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+  main { padding: 20px; max-width: 1400px; margin: 0 auto; }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; position: relative; overflow: hidden; cursor: default;
+  }
+  .stat-card.clickable { cursor: pointer; }
+  .stat-card.clickable:hover { border-color: var(--accent); }
+  .stat-card::before { content:\'\'; position:absolute; top:0; left:0; right:0; height:2px; }
+  .stat-card.total::before { background: var(--accent); }
+  .stat-card.vigente::before { background: var(--green); }
+  .stat-card.alerta::before { background: var(--red); }
+  .stat-card.efectivo::before { background: var(--yellow); }
+  .stat-card.proximas::before { background: var(--blue); }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+  .stat-val { font-size: 26px; font-weight: 800; }
+  .stat-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .stat-card.vigente .stat-val { color: var(--green); }
+  .stat-card.alerta .stat-val { color: var(--red); }
+  .stat-card.efectivo .stat-val { color: var(--yellow); }
+  .stat-card.proximas .stat-val { color: var(--blue); }
+
+  /* BANNERS */
+  .banner {
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+  }
+  .banner-red { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.4); display:none; }
+  .banner-blue { background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.3); display:none; }
+  .banner-cal { background: var(--surface2); border: 1px solid var(--border); display:none; }
+  .banner h3 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .banner-red h3 { color: var(--red); }
+  .banner-blue h3 { color: #60a5fa; }
+  .banner-cal h3 { color: var(--accent2); }
+  .banner-row { font-size: 11px; color: var(--text); padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.05); display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .banner-row:last-child { border-bottom: none; }
+  .banner-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+
+  /* CAL GRID */
+  .cal-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:10px; }
+  .cal-item { display:flex; flex-direction:column; gap:4px; }
+  .cal-item label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; }
+  .cal-item input { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:6px 10px; color:var(--text); font-family:var(--font); font-size:12px; outline:none; width:100%; }
+  .cal-item input:focus { border-color:var(--accent); }
+  .cal-sep { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; font-weight:700; grid-column:1/-1; padding-top:6px; }
+
+  /* FILTERS */
+  .filters { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  .search-box {
+    flex:1; min-width:180px; background:var(--surface); border:1px solid var(--border);
+    border-radius:7px; padding:8px 12px; color:var(--text); font-family:var(--font); font-size:12px; outline:none;
+  }
+  .search-box:focus { border-color:var(--accent); }
+  .search-box::placeholder { color:var(--muted); }
+  select {
+    background:var(--surface); border:1px solid var(--border); border-radius:7px;
+    padding:8px 12px; color:var(--text); font-family:var(--font); font-size:12px; outline:none; cursor:pointer;
+  }
+  select:focus { border-color:var(--accent); }
+
+  /* BUTTONS */
+  .btn {
+    padding:8px 16px; border-radius:7px; font-family:var(--font); font-size:12px;
+    font-weight:700; cursor:pointer; border:none; transition:all .15s;
+  }
+  .btn-primary { background:var(--accent); color:white; }
+  .btn-primary:hover { background:var(--accent2); }
+  .btn-ghost { background:transparent; color:var(--muted); border:1px solid var(--border); }
+  .btn-ghost:hover { color:var(--text); border-color:var(--accent); }
+  .btn-wa { background:#25D366; color:white; font-size:11px; padding:5px 10px; border-radius:6px; text-decoration:none; display:inline-flex; align-items:center; }
+  .btn-wa:hover { background:#128C7E; }
+  .btn-sm { padding:4px 9px; font-size:10px; }
+  .btn-success { background:var(--green); color:white; }
+  .btn-success:hover { opacity:.85; }
+  .btn-orange { background:rgba(245,158,11,.2); color:var(--yellow); border:1px solid rgba(245,158,11,.3); }
+
+  /* TABLE */
+  .table-wrap { overflow-x:auto; border-radius:10px; border:1px solid var(--border); }
+  table { width:100%; border-collapse:collapse; }
+  th {
+    background:var(--surface2); padding:9px 10px; text-align:left;
+    font-size:10px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted);
+    white-space:nowrap; border-bottom:1px solid var(--border);
+  }
+  td { padding:8px 10px; font-size:11px; border-bottom:1px solid rgba(46,46,56,.6); vertical-align:middle; white-space:nowrap; }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:rgba(124,106,245,.05); }
+  tr.notificado td { opacity:.4; }
+  tr.notificado td.col-acc { opacity:1; }
+
+  /* sticky actions */
+  th.col-acc, td.col-acc {
+    position:sticky; right:0; background:var(--surface);
+    box-shadow:-2px 0 8px rgba(0,0,0,.4); z-index:2;
+  }
+  th.col-acc { background:var(--surface2); z-index:3; }
+  tr:hover td.col-acc { background:#1e1e24; }
+  tr.notificado td.col-acc { background:var(--surface); opacity:1; }
+
+  /* SEMAFORO */
+  .dot { width:9px; height:9px; border-radius:50%; display:inline-block; flex-shrink:0; }
+  .dot-green { background:var(--green); box-shadow:0 0 5px var(--green); }
+  .dot-yellow { background:var(--yellow); box-shadow:0 0 5px var(--yellow); animation:blink 1.5s infinite; }
+  .dot-red { background:var(--red); box-shadow:0 0 7px var(--red); animation:blink .8s infinite; }
+  .dot-blue { background:var(--blue); }
+  .dot-gray { background:var(--muted); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+  .sem-cell { display:flex; align-items:center; gap:7px; }
+
+  /* BADGES */
+  .badge {
+    font-size:10px; padding:2px 7px; border-radius:20px; font-weight:700; display:inline-block;
+  }
+  .b-red { background:rgba(239,68,68,.2); color:var(--red); }
+  .b-yellow { background:rgba(245,158,11,.2); color:var(--yellow); }
+  .b-green { background:rgba(34,197,94,.15); color:var(--green); }
+  .b-gray { background:rgba(122,122,144,.2); color:var(--muted); }
+  .b-blue { background:rgba(59,130,246,.15); color:#60a5fa; }
+  .b-notif { background:rgba(34,197,94,.15); color:var(--green); }
+  .b-comp-sc { background:rgba(59,130,246,.15); color:#60a5fa; }
+  .b-comp-ri { background:rgba(168,85,247,.15); color:#c084fc; }
+  .b-comp-na { background:rgba(34,197,94,.15); color:#4ade80; }
+  .b-comp-sa { background:rgba(245,158,11,.15); color:#fbbf24; }
+  .b-pago-ef { background:rgba(245,158,11,.15); color:#fbbf24; }
+  .b-pago-ta { background:rgba(59,130,246,.15); color:#60a5fa; }
+  .b-pago-de { background:rgba(34,197,94,.15); color:#4ade80; }
+  .b-pago-co { background:rgba(239,68,68,.15); color:#f87171; }
+  .b-estado-v { background:rgba(34,197,94,.12); color:#4ade80; }
+  .b-estado-c { background:rgba(239,68,68,.12); color:#f87171; }
+  .nombre-cell { max-width:175px; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+  .npoliza { color:var(--muted); font-size:10px; }
+
+  /* MODAL */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.78); z-index:200; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:24px; max-width:560px; width:100%; max-height:90vh; overflow-y:auto; }
+  .modal h2 { font-size:16px; font-weight:700; margin-bottom:18px; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .fg { display:flex; flex-direction:column; gap:5px; }
+  .fg.full { grid-column:1/-1; }
+  .fg label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.7px; }
+  .fg input, .fg select, .fg textarea {
+    background:var(--surface2); border:1px solid var(--border); border-radius:7px;
+    padding:8px 11px; color:var(--text); font-family:var(--font); font-size:12px; outline:none; width:100%;
+  }
+  .fg input:focus, .fg select:focus, .fg textarea:focus { border-color:var(--accent); }
+  .fg textarea { resize:vertical; min-height:55px; }
+  .fg .hint { font-size:10px; color:var(--muted); margin-top:2px; }
+  .form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+  .renovar-info { background:var(--surface2); border-radius:8px; padding:12px; margin-bottom:14px; font-size:12px; line-height:1.9; }
+  .renovar-info strong { color:var(--accent2); }
+
+  /* HISTORIAL */
+  .hist-item { background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:9px; }
+  .hist-nombre { font-weight:700; font-size:13px; }
+  .hist-poliza { font-size:11px; color:var(--accent2); margin-top:3px; }
+  .hist-fecha { font-size:10px; color:var(--muted); margin-top:3px; }
+
+  /* MISC */
+  .empty { text-align:center; padding:50px; color:var(--muted); }
+  .empty big { font-size:36px; display:block; margin-bottom:8px; }
+  .section-title { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:10px; }
+  .pagination { display:flex; gap:5px; align-items:center; justify-content:center; margin-top:16px; }
+  .page-btn { width:32px; height:32px; border-radius:5px; border:1px solid var(--border); background:var(--surface); color:var(--muted); cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  .page-btn:hover { border-color:var(--accent); color:var(--accent2); }
+  .page-btn.active { background:var(--accent); border-color:var(--accent); color:white; }
+  .page-info { font-size:11px; color:var(--muted); padding:0 8px; }
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  @media(max-width:768px){ main{padding:12px;} .form-grid{grid-template-columns:1fr;} .stats-grid{grid-template-columns:repeat(2,1fr);} }
+
+  /* PANEL ACCION RAPIDA */
+  .accion-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    transition: border-color .15s;
+  }
+  .accion-card:hover { border-color: var(--accent); }
+  .accion-card.notificado { opacity: .35; }
+  .accion-card.rojo { border-left: 3px solid var(--red); }
+  .accion-card.amarillo { border-left: 3px solid var(--yellow); }
+  .accion-card-left { display:flex; align-items:center; gap:12px; min-width:0; }
+  .accion-nombre { font-weight: 600; font-size: 13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
+  .accion-det { font-size: 10px; color: var(--muted); margin-top:2px; }
+  .accion-badge { font-size: 10px; padding: 3px 9px; border-radius: 20px; font-weight: 700; white-space:nowrap; flex-shrink:0; }
+  .accion-badge.rojo { background:rgba(239,68,68,.2); color:var(--red); }
+  .accion-badge.amarillo { background:rgba(245,158,11,.2); color:var(--yellow); }
+  .accion-actions { display:flex; gap:5px; align-items:center; flex-shrink:0; }
+  .accion-empty { text-align:center; padding:28px; color:var(--muted); font-size:12px; background:var(--surface); border-radius:10px; border:1px dashed var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">AB <span>·</span> Productor de Seguros</div>
+  <div class="header-actions">
+    <span class="badge-alert" id="badgeAlert">⚠ Urgentes</span>
+    <button class="btn btn-ghost btn-sm" onclick="toggleCal()" title="Configurar calendario débito San Cristóbal">📅 Cal. débito SC</button>
+    <button class="btn btn-ghost btn-sm" onclick="eliminarTipos()" title="Gestionar tipos de seguro personalizados" style="font-size:11px">Tipos ✎</button>
+    <button class="btn btn-primary" onclick="openModal()">+ Nueva póliza</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('polizas',this)">Pólizas</div>
+  <div class="tab" onclick="switchTab('historial',this)">Historial WA</div>
+</div>
+
+<main>
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <!-- CALENDARIO DÉBITO SC -->
+  <div class="banner banner-cal" id="bannerCal">
+    <div class="banner-hdr">
+      <h3 style="margin:0">📅 Calendario San Cristóbal — Débito en cuenta — <span id="calMesLabel"></span></h3>
+      <button class="btn btn-ghost btn-sm" onclick="toggleCal()">✕ Cerrar</button>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:12px">Cargá las fechas del mes en curso. El semáforo y los días restantes se calculan sobre las <strong>fechas de extracción</strong> (cuando se debita el dinero). Las fechas de corte son solo referencia para saber cuándo avisar.</p>
+    <div class="cal-grid">
+      <div class="cal-sep">Fechas de corte — avisá ANTES de estas fechas</div>
+      <div class="cal-item"><label>Corte 1</label><input type="date" id="calC1"></div>
+      <div class="cal-item"><label>Corte 2</label><input type="date" id="calC2"></div>
+      <div class="cal-item"><label>Corte 3</label><input type="date" id="calC3"></div>
+      <div class="cal-sep">Fechas de extracción (info)</div>
+      <div class="cal-item"><label>Extracción 1</label><input type="date" id="calE1"></div>
+      <div class="cal-item"><label>Extracción 2</label><input type="date" id="calE2"></div>
+      <div class="cal-item"><label>Extracción 3</label><input type="date" id="calE3"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+      <button class="btn btn-success" onclick="guardarCalendario()">Guardar calendario</button>
+    </div>
+  </div>
+
+  <!-- ALERTAS URGENTES — solo Efectivo / Débito / Completar -->
+  <div class="banner banner-red" id="bannerAlertas">
+    <div class="banner-hdr">
+      <h3 style="margin:0">⚠ Requieren notificacion urgente</h3>
+      <span style="font-size:11px;color:var(--muted)">Tarjeta crédito SC excluida (cobro automático día 15)</span>
+    </div>
+    <div id="alertasList"></div>
+  </div>
+
+  <!-- TARJETA SC — informativo -->
+  <div class="banner banner-blue" id="bannerTarjeta">
+    <div class="banner-hdr">
+      <h3 style="margin:0">💳 San Cristóbal — Tarjeta de crédito (cobro automático día 15)</h3>
+      <button class="btn btn-ghost btn-sm" onclick="toggleTarjeta()">Ver lista ▾</button>
+    </div>
+    <div id="tarjetaLista" style="display:none;margin-top:6px"></div>
+  </div>
+
+  <!-- TAB PÓLIZAS -->
+  <div id="tabPolizas">
+
+    <!-- PANEL ACCION RAPIDA -->
+    <div id="panelAccion" style="margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:12px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.8px;">
+          Urgentes y próximas <span id="accionCount" style="font-size:10px;color:var(--muted);font-weight:400;margin-left:6px"></span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="marcarTodosHoy()" id="btnMarcarTodos" style="display:none">✓ Marcar todos como notificados</button>
+          <button class="btn btn-ghost btn-sm" onclick="togglePanelAccion()" id="btnToggleAccion">Ocultar ▲</button>
+        </div>
+      </div>
+      <div id="accionList"></div>
+    </div>
+
+    <div class="filters">
+      <input class="search-box" id="searchInput" type="text" placeholder="Buscar nombre, póliza, patente..." oninput="renderTable()">
+      <select onchange="renderTable()" id="filtEstado">
+        <option value="">Todos los estados</option>
+        <option>Vigente</option><option>Cancelada</option>
+      </select>
+      <select onchange="renderTable()" id="filtCompania">
+        <option value="">Todas las compañías</option>
+        <option>San Cristóbal</option><option>Rivadavia</option>
+        <option>Nación Seguros</option><option>Sancor</option>
+      </select>
+      <select onchange="renderTable()" id="filtPago">
+        <option value="">Todos los medios</option>
+        <option>Efectivo</option><option>Tarjeta de crédito</option>
+        <option>Débito en cuenta</option><option>Completar</option>
+      </select>
+      <select onchange="renderTable()" id="filtSem">
+        <option value="">Todo</option>
+        <option value="rojo">🔴 Urgente (≤3d)</option>
+        <option value="amarillo">🟡 Próxima (4–7d)</option>
+        <option value="verde">🟢 Al día</option>
+        <option value="tarjeta">💳 Tarjeta auto</option>
+        <option value="sin_fecha">Sin fecha</option>
+      </select>
+      <button class="btn btn-ghost" onclick="clearFilters()">Limpiar</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Estado</th>
+          <th>Asegurado</th>
+          <th>Compañía</th>
+          <th>Póliza</th>
+          <th>Tipo</th>
+          <th>Próx. vencimiento</th>
+          <th>Medio pago</th>
+          <th class="col-acc">Acciones</th>
+        </tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <!-- TAB HISTORIAL -->
+  <div id="tabHistorial" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="section-title">Mensajes de WhatsApp enviados</div>
+      <button class="btn btn-ghost btn-sm" onclick="clearHistorial()">Limpiar historial</button>
+    </div>
+    <div id="historialList"></div>
+  </div>
+</main>
+
+<!-- MODAL PÓLIZA -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Nueva póliza</h2>
+    <div class="form-grid">
+      <div class="fg full"><label>Apellido y nombre</label><input type="text" id="fNombre" placeholder="Ej: García, Ana Belén"></div>
+      <div class="fg"><label>Teléfono WhatsApp</label><input type="text" id="fTelefono" placeholder="5493442xxxxxx"></div>
+      <div class="fg"><label>Email (opcional)</label><input type="text" id="fEmail" placeholder="cliente@email.com"></div>
+      <div class="fg"><label>Compañía</label>
+        <select id="fCompania"><option value="">Seleccionar...</option>
+          <option>Sancor</option><option>Nación Seguros</option>
+          <option>San Cristóbal</option><option>Rivadavia</option>
+        </select>
+      </div>
+      <div class="fg"><label>Medio de pago</label>
+        <select id="fMedioPago"><option value="">Seleccionar...</option>
+          <option>Efectivo</option><option>Tarjeta de crédito</option>
+          <option>Débito en cuenta</option><option>Completar</option>
+        </select>
+      </div>
+      <div class="fg"><label>Tipo de seguro</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="fTipo" style="flex:1"></select>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="agregarTipo()" title="Agregar nuevo tipo" style="flex-shrink:0;padding:7px 10px;font-size:13px">+</button>
+        </div>
+      </div>
+      <div class="fg"><label>Nº de póliza</label><input type="text" id="fNpoliza" placeholder="Ej: 01-02-01-31876771"></div>
+      <div class="fg"><label>Premio mensual ($)</label><input type="text" id="fPremio" placeholder="0"></div>
+      <div class="fg"><label>Estado</label>
+        <select id="fEstado"><option>Vigente</option><option>Cancelada</option></select>
+      </div>
+      <div class="fg"><label>F. inicio vigencia</label><input type="date" id="fFInicio"></div>
+      <div class="fg"><label>F. fin vigencia (anual)</label><input type="date" id="fFVto"></div>
+      <div class="fg"><label>Día vto. mensual (1–31)</label>
+        <input type="text" id="fDiaVto" placeholder="Ej: 12" maxlength="2">
+        <span class="hint">Dejalo vacío si el vencimiento no es fijo</span>
+      </div>
+      <div class="fg"><label>Periodicidad de pago</label>
+        <select id="fPeriodicidad">
+          <option value="mensual">Mensual</option>
+          <option value="trimestral">Trimestral</option>
+          <option value="semestral">Semestral</option>
+          <option value="anual">Anual</option>
+        </select>
+      </div>
+      <div class="fg full"><label>Próx. vto. manual (para pago adelantado, trimestral, etc.)</label>
+        <input type="date" id="fProxVtoManual">
+        <span class="hint">Si cargás esto, se usa en lugar del cálculo automático por día mensual</span>
+      </div>
+      <div class="fg full"><label>Notas (patente, descripción, etc.)</label>
+        <textarea id="fNotas" placeholder="Ej: Patente: AB123CD | FORD FOCUS 1.6"></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePoliza()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RENOVAR -->
+<div class="modal-overlay" id="renovarOverlay">
+  <div class="modal" style="max-width:420px">
+    <h2>🔄 Renovar vencimiento</h2>
+    <div class="renovar-info" id="renovarInfo"></div>
+    <div class="fg" style="margin-bottom:14px">
+      <label>Nueva fecha de próximo vencimiento</label>
+      <input type="date" id="renovarFecha" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 11px;color:var(--text);font-family:var(--font);font-size:13px;outline:none">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeRenovar()">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmarRenovar()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const INITIAL_DATA = [{"nombre":"Guiot, Cesar Agustin","telefono":"5493456454029","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31876771","premio":"124181","medioPago":"Efectivo","fInicio":"2025-12-30","fVtoAnual":"2026-12-30","estado":"Vigente","notas":"Patente: FBV400 | RENAULT CLIO 2 F2 1.2 3P AUTHENTIQUE"},{"nombre":"Schvindt, Mariela Ester","telefono":"5493442405430","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31901625","premio":"270350","medioPago":"Tarjeta de crédito","fInicio":"2026-01-29","fVtoAnual":"2027-01-29","estado":"Vigente","notas":"Patente: LDF008 | VOLKSWAGEN VOYAGE 1.6 COMFORTLINE L/13"},{"nombre":"Schvindt, Mariela Ester","telefono":"5493442405430","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31901624","premio":"126107","medioPago":"Tarjeta de crédito","fInicio":"2026-01-29","fVtoAnual":"2027-01-29","estado":"Vigente","notas":"Patente: PLX783 | VOLKSWAGEN VENTO 1.4 TSI CONFORTLINE"},{"nombre":"Beorda, Paulo Jose","telefono":"5493442646933","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30193904","premio":"66802","medioPago":"Tarjeta de crédito","fInicio":"2025-10-29","fVtoAnual":"2026-10-29","estado":"Vigente","notas":"Patente: A028PLS | GUERRERO BUSINESS 110 TRIP"},{"nombre":"Ysla, Antonio Javier","telefono":"5493456520956","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31878938","premio":"40743","medioPago":"Efectivo","fInicio":"2026-01-02","fVtoAnual":"2026-04-02","estado":"Cancelada","notas":"Patente: AB430GS | CHEVROLET ONIX 1.4 LS JOY + L/17"},{"nombre":"Paz, Judith Fernanda","telefono":"5493456263095","compania":"San Cristóbal","tipo":"Vida","npoliza":"01-02-06-30078202","premio":"72272","medioPago":"Débito en cuenta","fInicio":"2026-03-18","fVtoAnual":"2027-03-18","estado":"Vigente","notas":null},{"nombre":"Franco, Marina Del Carmen","telefono":"5493456463722","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31926927","premio":"33295","medioPago":"Efectivo","fInicio":"2026-02-28","fVtoAnual":"2027-02-28","estado":"Vigente","notas":"Patente: AA900GC | PEUGEOT 2008 1.6 FELINE TIPTRONIC"},{"nombre":"Benitez, Jose Antonio","telefono":"5493447566857","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30210582","premio":"26887","medioPago":"Completar","fInicio":"2026-03-17","fVtoAnual":"2027-03-17","estado":"Vigente","notas":"Patente: 729KRF | MOTOMEL ENDURO 150 SKUA CX"},{"nombre":"Almada, Leonardo Anibal","telefono":"5493442673788","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30203775","premio":"22444","medioPago":"Débito en cuenta","fInicio":"2026-01-26","fVtoAnual":"2027-01-26","estado":"Vigente","notas":"Patente: A276FIY | IKA CALLE 110 SLALOM"},{"nombre":"Albornoz, Brisa Ayelen","telefono":"5493442673788","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30203774","premio":"22444","medioPago":"Efectivo","fInicio":"2026-01-26","fVtoAnual":"2027-01-26","estado":"Vigente","notas":"Patente: A276FIX | IKA CALLE 110 SLALOM"},{"nombre":"Schvindt, Mariela Ester","telefono":"5493442405430","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30207751","premio":"8330","medioPago":"Tarjeta de crédito","fInicio":"2026-02-24","fVtoAnual":"2027-02-24","estado":"Vigente","notas":"Patente: A203AMO | HONDA BUSINESS WAVE  110S C/D"},{"nombre":"Schvindt, Mariela Ester","telefono":"5493442405430","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30207753","premio":"8330","medioPago":"Tarjeta de crédito","fInicio":"2026-02-24","fVtoAnual":"2027-02-24","estado":"Vigente","notas":"Patente: A239LJE | HONDA BUSINESS WAVE  110S C/D"},{"nombre":"Beorda, Anibal Francisco","telefono":"5491162634545","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31844150","premio":"149449","medioPago":"Tarjeta de crédito","fInicio":"2025-10-24","fVtoAnual":"2026-10-24","estado":"Vigente","notas":"Patente: AB539EB | CHEVROLET ONIX 1.4 LS JOY L/17"},{"nombre":"Monzon, Lourdes Valeria","telefono":"5493454942706","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31936643","premio":"90662","medioPago":"Tarjeta de crédito","fInicio":"2026-03-13","fVtoAnual":"2027-03-13","estado":"Vigente","notas":"Patente: EFQ783 | VOLKSWAGEN GOL 1.6 3P FORMAT BASE"},{"nombre":"Valdez, Iara Milagros","telefono":"5493454746299","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30198890","premio":"17875","medioPago":"Tarjeta de crédito","fInicio":"2025-12-19","fVtoAnual":"2026-12-19","estado":"Cancelada","notas":"Patente: Patente en trámite | GILERA BUSINESS 110 SMASH VS"},{"nombre":"Gallay, Malena Soledad","telefono":"5493442456706","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30210202","premio":"11673","medioPago":"Completar","fInicio":"2026-03-13","fVtoAnual":"2027-03-13","estado":"Vigente","notas":"Patente: 517HDN | GILERA BUSINESS 110 SMASH FULL"},{"nombre":"Regner, Leonela Elizabeth","telefono":"5493456465309","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31895249","premio":"0","medioPago":"Tarjeta de crédito","fInicio":"2026-01-22","fVtoAnual":"2027-01-22","estado":"Cancelada","notas":"Patente: OIY496 | RENAULT CLIO MIO 1.2 5P CONFORT"},{"nombre":"Schvint, Matilde Trinidad","telefono":"5493782510791","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30199291","premio":"28851","medioPago":"Tarjeta de crédito","fInicio":"2025-12-23","fVtoAnual":"2026-12-23","estado":"Vigente","notas":"Patente: A269ZXO | GUERRERO BUSINESS 110 TRIP TUNNING"},{"nombre":"Monzon, Lourdes Valeria","telefono":"5493454942706","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31867470","premio":"25607","medioPago":"Tarjeta de crédito","fInicio":"2025-12-19","fVtoAnual":"2026-12-19","estado":"Cancelada","notas":"Patente: EFQ783 | VOLKSWAGEN GOL 1.6 3P FORMAT BASE"},{"nombre":"Beorda, Anibal Francisco","telefono":"5491162634545","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31193301","premio":"63789","medioPago":"Tarjeta de crédito","fInicio":"2025-10-23","fVtoAnual":"2026-10-23","estado":"Vigente","notas":"Patente: A140KVR | CORVEN BUSINESS MIRAGE  110 RT"},{"nombre":"Erpen, Jose Anibal","telefono":"5493442566151","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31843859","premio":"319334","medioPago":"Tarjeta de crédito","fInicio":"2025-10-23","fVtoAnual":"2026-10-23","estado":"Vigente","notas":"Patente: AA682ES | TOYOTA ETIOS 1.5 4P X  6 MT"},{"nombre":"Bourlot, Cesar David","telefono":"5493447510118","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31869979","premio":"140516","medioPago":"Efectivo","fInicio":"2025-12-22","fVtoAnual":"2026-12-22","estado":"Vigente","notas":"Patente: DOI554 | PEUGEOT PARTNER 1.9D PLC DH"},{"nombre":"Garcia, Anabela","telefono":"5493442644225","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31904669","premio":"110206","medioPago":"Débito en cuenta","fInicio":"2026-02-02","fVtoAnual":"2027-02-02","estado":"Vigente","notas":"Patente: AB639SA | VOLKSWAGEN GOL TREND 1.6 5P L/17"},{"nombre":"Duran, Tomas Rodrigo","telefono":"5493456558229","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30203087","premio":"46019","medioPago":"Débito en cuenta","fInicio":"2026-01-21","fVtoAnual":"2027-01-21","estado":"Vigente","notas":"Patente: Patente en trámite | MOTOMEL CALLE 150 CG SERIE 2"},{"nombre":"Fontana, Oscar Miguel","telefono":"5493442457401","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31893478","premio":"251633","medioPago":"Tarjeta de crédito","fInicio":"2026-01-20","fVtoAnual":"2027-01-20","estado":"Vigente","notas":"Patente: AF994CD | CHRYSLER JEEP RENEGADE 1.8 4X2 SPORT L/22"},{"nombre":"Dominguez, Antonella Paula","telefono":"5493447622388","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30209641","premio":"8963","medioPago":"Completar","fInicio":"2026-03-09","fVtoAnual":"2027-03-09","estado":"Vigente","notas":"Patente: A236DEB | SIAM BUSINESS QU 110"},{"nombre":"Gareis, Andres Alejandro","telefono":"5493442582450","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31853932","premio":"244060","medioPago":"Débito en cuenta","fInicio":"2025-11-18","fVtoAnual":"2026-11-18","estado":"Vigente","notas":"Patente: AB429XQ | FIAT FIORINO FURGON 1.4 EVO CONFORT"},{"nombre":"Gonzalez, Julio Rolando","telefono":"5493442479544","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31933583","premio":"42919","medioPago":"Completar","fInicio":"2026-03-09","fVtoAnual":"2027-03-09","estado":"Vigente","notas":"Patente: HQY864 | RENAULT MEGANE II 2.0 LUXE GRAND TOUR"},{"nombre":"Gonzalez, Julio Eduado","telefono":"5493442479544","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31867356","premio":"76868","medioPago":"Débito en cuenta","fInicio":"2025-12-19","fVtoAnual":"2026-12-19","estado":"Cancelada","notas":"Patente: JKF200 | PEUGEOT 206 1.4 5P GENERATION"},{"nombre":"Pucheta, Rebeca Lujan","telefono":"5493454132819","compania":"San Cristóbal","tipo":"Vida","npoliza":"01-02-06-30077665","premio":"128442","medioPago":"Completar","fInicio":"2026-03-09","fVtoAnual":"2027-03-09","estado":"Vigente","notas":null},{"nombre":"Gareis, Andres Alejandro","telefono":"5493442582450","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31930261","premio":"64433","medioPago":"Débito en cuenta","fInicio":"2026-03-04","fVtoAnual":"2027-03-04","estado":"Vigente","notas":"Patente: AF705BA | RENAULT KANGOO EXPRESS L/18 1.5 DCI CONFORT 5AS"},{"nombre":"Urquiza, Eduardo Cesar","telefono":"5493442563875","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31891745","premio":"101948","medioPago":"Débito en cuenta","fInicio":"2026-01-19","fVtoAnual":"2027-01-19","estado":"Vigente","notas":"Patente: AC168WS | RENAULT KANGOO 2 1.6 EXPRESS 1 PLC CONFORT L/14"},{"nombre":"Taborda, Yamila Soledad","telefono":"5493455235047","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31932952","premio":"53690","medioPago":"Completar","fInicio":"2026-03-08","fVtoAnual":"2027-03-08","estado":"Vigente","notas":"Patente: AF955DB | VOLKSWAGEN T-CROSS 1.0 170 TSI"},{"nombre":"Schvindt, Mariela Ester","telefono":"5493442405430","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31916238","premio":"120777","medioPago":"Tarjeta de crédito","fInicio":"2026-02-18","fVtoAnual":"2027-02-18","estado":"Vigente","notas":"Patente: AB490HQ | RENAULT CAPTUR 2.0 INTENS"},{"nombre":"Baigorria Renieri, Johann Giovanni","telefono":"5493455215808","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30198784","premio":"67232","medioPago":"Efectivo","fInicio":"2025-12-18","fVtoAnual":"2026-12-18","estado":"Vigente","notas":"Patente: Patente en trámite | CORVEN BUSINESS ENERGY  110 S FULL"},{"nombre":"Gomez Rodriguez, Juan Pablo","telefono":"5495989445568","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31865968","premio":"171262","medioPago":"Tarjeta de crédito","fInicio":"2025-12-18","fVtoAnual":"2026-12-18","estado":"Vigente","notas":"Patente: DPN446 | PEUGEOT 206 1.4 5P XR"},{"nombre":"Vargas, Juan Manuel","telefono":"5493442300006","compania":"San Cristóbal","tipo":"Vida","npoliza":"01-02-06-30077620","premio":"513766","medioPago":"Efectivo","fInicio":"2026-03-07","fVtoAnual":"2027-03-07","estado":"Vigente","notas":null},{"nombre":"Villalba, Jorge Daniel","telefono":"Sin telefono","compania":"San Cristóbal","tipo":"Vida","npoliza":"01-02-06-30077617","premio":"0","medioPago":"Completar","fInicio":"2026-03-07","fVtoAnual":"2027-03-07","estado":"Cancelada","notas":null},{"nombre":"Almada, Leonardo Anibal","telefono":"5493442673788","compania":"San Cristóbal","tipo":"Hogar","npoliza":"01-02-07-30286206","premio":"60000","medioPago":"Débito en cuenta","fInicio":"2026-03-07","fVtoAnual":"2026-06-07","estado":"Vigente","notas":null},{"nombre":"Ramirez, Gabriel Oscar","telefono":"5493435104428","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31899825","premio":"48617","medioPago":"Tarjeta de crédito","fInicio":"2026-01-27","fVtoAnual":"2027-01-27","estado":"Cancelada","notas":"Patente: IMU020 | VOLKSWAGEN GOL (G4) 1.6 5P POWER PLUS"},{"nombre":"Benitez, Eduardo Ezequiel","telefono":"5493454069569","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30202461","premio":"57892","medioPago":"Efectivo","fInicio":"2026-01-16","fVtoAnual":"2027-01-16","estado":"Vigente","notas":"Patente: Patente en trámite | KELLER CICLOMOTOR 110 CRONO CLASIC FULL"},{"nombre":"Wurst, Martina Cecilia","telefono":"5493442545629","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31864797","premio":"191190","medioPago":"Tarjeta de crédito","fInicio":"2025-12-16","fVtoAnual":"2026-12-16","estado":"Vigente","notas":"Patente: JWW705 | HONDA FIT 1.4 LX 5P L/09"},{"nombre":"Vasquez, Maria Belen","telefono":"5493447452044","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31864779","premio":"279768","medioPago":"Efectivo","fInicio":"2025-12-16","fVtoAnual":"2026-12-16","estado":"Vigente","notas":"Patente: MFX483 | TOYOTA COROLLA 1.8 XEI L/11"},{"nombre":"Loker, Cesar Adrian","telefono":"5493447406034","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31864785","premio":"199071","medioPago":"Efectivo","fInicio":"2025-12-16","fVtoAnual":"2026-12-16","estado":"Vigente","notas":"Patente: CEM602 | FIAT FIORINO 1.7 DIESEL"},{"nombre":"Loker, Cesar Adrian","telefono":"5493447406034","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30198440","premio":"82894","medioPago":"Efectivo","fInicio":"2025-12-16","fVtoAnual":"2026-12-16","estado":"Vigente","notas":"Patente: A270HBN | ZANELLA MOTOS ENDURO ZR 150 (2025)"},{"nombre":"Vasquez, Maria Belen","telefono":"5493447452044","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30198452","premio":"66578","medioPago":"Efectivo","fInicio":"2025-12-16","fVtoAnual":"2026-12-16","estado":"Vigente","notas":"Patente: A270HBO | ZANELLA MOTOS CALLE HOT     90 G2"},{"nombre":"Martinez, Joana Noemi","telefono":"5493454116407","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31870093","premio":"44559","medioPago":"Débito en cuenta","fInicio":"2025-12-22","fVtoAnual":"2026-12-22","estado":"Cancelada","notas":"Patente: AE551ZR | FIAT CRONOS 1.3 DRIVE GSE PACK CONECTIVIDAD L/21"},{"nombre":"Roude, Jorge Sebastian","telefono":"5493413340196","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31841144","premio":"1207285","medioPago":"Tarjeta de crédito","fInicio":"2025-10-16","fVtoAnual":"2026-10-16","estado":"Vigente","notas":"Patente: AG770LD | AUDI A5 2.0 T 45 QUATTRO S TRONIC L/23"},{"nombre":"Dominguez, Hugo Javier","telefono":"5493442653796","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30192587","premio":"46768","medioPago":"Tarjeta de crédito","fInicio":"2025-10-16","fVtoAnual":"2026-10-16","estado":"Vigente","notas":"Patente: A245EGP | HERO ENDURO XPULSE 200"},{"nombre":"Franco, Fabio Oscar","telefono":"5493447641676","compania":"San Cristóbal","tipo":"Vida","npoliza":"01-02-06-30077530","premio":"148723","medioPago":"Efectivo","fInicio":"2026-03-05","fVtoAnual":"2027-03-05","estado":"Vigente","notas":null},{"nombre":"Beorda, Paulo Jose","telefono":"5493442646933","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31840761","premio":"154918","medioPago":"Tarjeta de crédito","fInicio":"2025-10-15","fVtoAnual":"2026-10-15","estado":"Vigente","notas":"Patente: FHP030 | VOLKSWAGEN GOL 1.9D 5P FORMAT"},{"nombre":"Micheli, Emanuel Jorge Daniel","telefono":"5493447408307","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30208956","premio":"8963","medioPago":"Efectivo","fInicio":"2026-03-04","fVtoAnual":"2027-03-04","estado":"Vigente","notas":"Patente: A206NRE | MOTOMEL BUSINESS 110 BLITZ PLUS L/N"},{"nombre":"Perez, Graciela Guadalupe","telefono":"5493445653846","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31852341","premio":"138061","medioPago":"Tarjeta de crédito","fInicio":"2025-11-14","fVtoAnual":"2026-11-14","estado":"Vigente","notas":"Patente: EDN413 | FORD FIESTA 1.4 5P EDGE TDCI"},{"nombre":"Sabaño Lugren, Agustin Fernando","telefono":"5493456025416","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31913815","premio":"128011","medioPago":"Efectivo","fInicio":"2026-02-13","fVtoAnual":"2027-02-13","estado":"Vigente","notas":"Patente: AB452WJ | RENAULT SANDERO II 1.6 8V AUTHENTIQUE"},{"nombre":"Perez, Graciela Guadalupe","telefono":"5493445653846","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30195305","premio":"54510","medioPago":"Tarjeta de crédito","fInicio":"2025-11-13","fVtoAnual":"2026-11-13","estado":"Vigente","notas":"Patente: A123JHP | KELLER CICLOMOTOR 110 CRONO CLASIC PLUS"},{"nombre":"Hernandez, Cristian Miguel","telefono":"5493442564522","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31911153","premio":"323267","medioPago":"Débito en cuenta","fInicio":"2026-02-10","fVtoAnual":"2027-02-10","estado":"Vigente","notas":"Patente: FHJ677 | FORD c CARGO C1722/43"},{"nombre":"Parrilla, Cristian Juan","telefono":"5493442608457","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31861917","premio":"399799","medioPago":"Débito en cuenta","fInicio":"2025-12-10","fVtoAnual":"2026-12-10","estado":"Vigente","notas":"Patente: AD789MO | TOYOTA COROLLA 1.8 XEI L/17"},{"nombre":"Metzler, Liliana Ines","telefono":"5493456406446","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31884771","premio":"283274","medioPago":"Tarjeta de crédito","fInicio":"2026-01-09","fVtoAnual":"2027-01-09","estado":"Vigente","notas":"Patente: AI006JG | HAVAL H6 2WD HEV SUPREME"},{"nombre":"Del Valle, Diego Luis","telefono":"5493442485653","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31884519","premio":"115048","medioPago":"Débito en cuenta","fInicio":"2026-01-09","fVtoAnual":"2027-01-09","estado":"Vigente","notas":"Patente: EIF836 | VOLKSWAGEN GOL 1.6 3P FORMAT"},{"nombre":"Gaggino, Fausto Danilo","telefono":"5493442541315","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31884629","premio":"138847","medioPago":"Débito en cuenta","fInicio":"2026-01-09","fVtoAnual":"2027-01-09","estado":"Vigente","notas":"Patente: AA568ZN | PEUGEOT PARTNER PATAGONICA 1.9.D FULL 2PLC"},{"nombre":"Ramirez, Gabriel Oscar","telefono":"5493435104428","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31883729","premio":"226497","medioPago":"Tarjeta de crédito","fInicio":"2026-01-08","fVtoAnual":"2027-01-08","estado":"Vigente","notas":"Patente: FUF784 | TOYOTA HILUX 3.0 D4-D D/CAB 4X4 TDI SRV"},{"nombre":"Bianqui, Ilda Rita","telefono":"5493445530427","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31883612","premio":"199347","medioPago":"Débito en cuenta","fInicio":"2026-01-08","fVtoAnual":"2027-01-08","estado":"Vigente","notas":"Patente: AH191EU | HYUNDAI HB20 1.6 5 PTAS COMFORT PLUS"},{"nombre":"Charreun, Maria Victoria","telefono":"5493442566168","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30191921","premio":"103680","medioPago":"Tarjeta de crédito","fInicio":"2025-10-08","fVtoAnual":"2026-10-08","estado":"Vigente","notas":"Patente: A261OOY | ZANELLA MOTOS BUSINESS ZB 110 Z3 ST"},{"nombre":"Amarillo, Rodolfo Daniel","telefono":"5493442999999","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31908317","premio":"102424","medioPago":"Tarjeta de crédito","fInicio":"2026-02-06","fVtoAnual":"2027-02-06","estado":"Vigente","notas":"Patente: AF478ZI | VOLKSWAGEN POLO 1.6 L/22 MSI TREND"},{"nombre":"Benitez, Victoria Daniela","telefono":"5493442551741","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31880977","premio":"188284","medioPago":"Tarjeta de crédito","fInicio":"2026-01-06","fVtoAnual":"2027-01-06","estado":"Vigente","notas":"Patente: MHS993 | TOYOTA COROLLA 1.8 XRS"},{"nombre":"Cano, Guillermo Gustavo","telefono":"5493442483207","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31880902","premio":"182700","medioPago":"Débito en cuenta","fInicio":"2026-01-06","fVtoAnual":"2027-01-06","estado":"Vigente","notas":"Patente: AF503QS | FORD RANGER 3.2 TDI DC 4X4 L/19 XLT"},{"nombre":"Piersanti, Maria Eugenia","telefono":"5493442502472","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31848749","premio":"300448","medioPago":"Tarjeta de crédito","fInicio":"2025-11-06","fVtoAnual":"2026-11-06","estado":"Vigente","notas":"Patente: AA168AC | CHEVROLET TRACKER 1.8 LTZ 4X2"},{"nombre":"Perez, Erica Edith Lorena","telefono":"5493447447902","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31887365","premio":"49864","medioPago":"Completar","fInicio":"2026-01-13","fVtoAnual":"2026-04-13","estado":"Cancelada","notas":"Patente: AC770OL | FIAT ARGO 1.3 DRIVE GSE"},{"nombre":"Contard, Natalia Lorena","telefono":"5493442622465","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31906505","premio":"73055","medioPago":"Débito en cuenta","fInicio":"2026-02-04","fVtoAnual":"2027-02-04","estado":"Vigente","notas":"Patente: HPO505 | VOLKSWAGEN GOL (G4) 1.6 5P POWER AA DH"},{"nombre":"Lopez, Lilia Beatriz","telefono":"5493442444444","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31906731","premio":"98814","medioPago":"Tarjeta de crédito","fInicio":"2026-02-05","fVtoAnual":"2027-02-05","estado":"Vigente","notas":"Patente: AD811HH | FORD KA 1.5 S L/18"},{"nombre":"Olivera, Carlos Martin","telefono":"5493773461923","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31881244","premio":"156610","medioPago":"Tarjeta de crédito","fInicio":"2026-01-05","fVtoAnual":"2027-01-05","estado":"Vigente","notas":"Patente: HQV635 | CHEVROLET VECTRA GT 2.4 CD L/09 AUT"},{"nombre":"Martinez, Nestor Edgardo","telefono":"5493442465660","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31849058","premio":"118410","medioPago":"Tarjeta de crédito","fInicio":"2025-11-05","fVtoAnual":"2026-11-05","estado":"Vigente","notas":"Patente: KZM379 | RENAULT KANGOO 2 1.6 EXPRESS 1 PLC CONFORT"},{"nombre":"Fraga, Leandro Alberto","telefono":"5493447410814","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31920863","premio":"91202","medioPago":"Efectivo","fInicio":"2026-03-04","fVtoAnual":"2026-06-04","estado":"Vigente","notas":"Patente: RUL446 | PEUGEOT 405 SRI"},{"nombre":"Martinez, Nestor Edgardo","telefono":"5493442465660","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31848704","premio":"199236","medioPago":"Tarjeta de crédito","fInicio":"2025-11-04","fVtoAnual":"2026-11-04","estado":"Vigente","notas":"Patente: MBN903 | FORD FOCUS LN 1.8 GHIA 4P TD EXE"},{"nombre":"Niebozyn, Celeste Soledad","telefono":"5493454017413","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30206727","premio":"573","medioPago":"Efectivo","fInicio":"2026-02-16","fVtoAnual":"2027-02-16","estado":"Cancelada","notas":"Patente: Patente en trámite | CORVEN BUSINESS ENERGY  110 TUNNING"},{"nombre":"Castro, Renzo Emiliano","telefono":"5493456413638","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31876884","premio":"0","medioPago":"Completar","fInicio":"2025-12-30","fVtoAnual":"2026-12-30","estado":"Cancelada","notas":"Patente: FIN077 | VOLKSWAGEN FOX 1.6 3P COMFORTLINE"},{"nombre":"Hernandez, Cristian Miguel","telefono":"5493442564522","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31911154","premio":"150442","medioPago":"Débito en cuenta","fInicio":"2026-02-10","fVtoAnual":"2026-05-10","estado":"Vigente","notas":"Patente: GIT576 | PEDRO PETINARI E HIJO S.A. ACG 3 E /2007 -"},{"nombre":"Campi, Lucas Eduardo","telefono":"5493442545629","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31911155","premio":"165058","medioPago":"Tarjeta de crédito","fInicio":"2026-02-10","fVtoAnual":"2026-05-10","estado":"Vigente","notas":"Patente: AG551OT | FIAT CRONOS 1.3 GSE DRIVE PACK PLUS L/23"},{"nombre":"Jauregui, Juan Javier","telefono":"5493444523286","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31881881","premio":"0","medioPago":"Completar","fInicio":"2026-01-06","fVtoAnual":"2027-01-06","estado":"Cancelada","notas":"Patente: BCO789 | RENAULT CLIO RT 5P PK2"},{"nombre":"Capdevila, Mauricio Alejandro","telefono":"5493444454545","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30205292","premio":"32293","medioPago":"Efectivo","fInicio":"2026-02-05","fVtoAnual":"2026-05-05","estado":"Vigente","notas":"Patente: A195QHR | MOTOMEL ENDURO 150 SKUA CX"},{"nombre":"Tracogna, Andrea Carina","telefono":"5493447526391","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31904759","premio":"123859","medioPago":"Tarjeta de crédito","fInicio":"2026-02-02","fVtoAnual":"2027-02-02","estado":"Vigente","notas":"Patente: JFK098 | FIAT FIORINO FURGON FIRE CONFORT"},{"nombre":"Tracogna, Andrea Carina","telefono":"5493447526391","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-21-30204679","premio":"26701","medioPago":"Tarjeta de crédito","fInicio":"2026-02-02","fVtoAnual":"2026-05-02","estado":"Vigente","notas":"Patente: 536IWE | HONDA BUSINESS WAVE  110"},{"nombre":"Cano, Guillermo Gustavo","telefono":"5493442483207","compania":"San Cristóbal","tipo":"Comercio","npoliza":"01-02-07-30276318","premio":"908869","medioPago":"Débito en cuenta","fInicio":"2026-01-20","fVtoAnual":"2026-07-20","estado":"Vigente","notas":"1 Comercio"},{"nombre":"Ibarra, Pablo Emanuel","telefono":"5493435148690","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31884804","premio":"22244","medioPago":"Completar","fInicio":"2026-01-09","fVtoAnual":"2027-01-09","estado":"Cancelada","notas":"Patente: IMU020 | VOLKSWAGEN GOL (G4) 1.6 5P POWER PLUS"},{"nombre":"Fontana, Oscar Miguel","telefono":"5493442457401","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31857471","premio":"80652","medioPago":"Tarjeta de crédito","fInicio":"2025-12-01","fVtoAnual":"2026-12-01","estado":"Cancelada","notas":"Patente: AF994CD | CHRYSLER JEEP RENEGADE 1.8 4X2 SPORT L/22"},{"nombre":"Gonzalez, Julio Eduado","telefono":"5493442479544","compania":"San Cristóbal","tipo":"Hogar","npoliza":"01-02-07-30276514","premio":"45000","medioPago":"Débito en cuenta","fInicio":"2026-01-21","fVtoAnual":"2026-04-21","estado":"Vigente","notas":null},{"nombre":"Martin, Juan Pablo","telefono":"5493447508522","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31876753","premio":"25768","medioPago":"Completar","fInicio":"2025-12-30","fVtoAnual":"2026-12-30","estado":"Cancelada","notas":"Patente: EUU428 | CITROEN C 3 1.4 HDI EXCLUSIVE"},{"nombre":"Fontana, Oscar Miguel","telefono":"5493442457401","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31893528","premio":"36109","medioPago":"Tarjeta de crédito","fInicio":"2026-01-20","fVtoAnual":"2026-04-20","estado":"Vigente","notas":"Patente: 101AF994CD | trailer Food Truck Comidas Rapidas -"},{"nombre":"Urquiza, Eduardo Cesar","telefono":"5493442563875","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31886471","premio":"0","medioPago":"Débito en cuenta","fInicio":"2026-01-12","fVtoAnual":"2027-01-12","estado":"Cancelada","notas":"Patente: MSZ128 | CITROEN C 3 1.5I TENDANCE PACK SECURE"},{"nombre":"Fontana, Oscar Miguel","telefono":"5493442457401","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31857813","premio":"0","medioPago":"Tarjeta de crédito","fInicio":"2025-11-28","fVtoAnual":"2026-05-28","estado":"Cancelada","notas":"Patente: 101AF994CD | TRAILER Food Truck Comidas rapidas"},{"nombre":"Vaiman, Hernan","telefono":"5493447436850","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31870889","premio":"4992","medioPago":"Efectivo","fInicio":"2025-12-23","fVtoAnual":"2026-12-23","estado":"Cancelada","notas":"Patente: CWJ321 | RENAULT CLIO RL 3P"},{"nombre":"Gareis, Andres Alejandro","telefono":"5493442582450","compania":"San Cristóbal","tipo":"Hogar","npoliza":"01-02-07-30262239","premio":"190206","medioPago":"Débito en cuenta","fInicio":"2025-11-14","fVtoAnual":"2026-05-14","estado":"Vigente","notas":null},{"nombre":"Britos, Maria Marcela","telefono":"5493442509555","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31858771","premio":"18704","medioPago":"Completar","fInicio":"2025-12-01","fVtoAnual":"2026-12-01","estado":"Cancelada","notas":"Patente: AF934NI | PEUGEOT 208 1.6 FELINE TIPRTONIC L/20"},{"nombre":"Fraga, Leandro Alberto","telefono":"5493447410814","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31859938","premio":"97165","medioPago":"Efectivo","fInicio":"2025-12-04","fVtoAnual":"2026-03-04","estado":"Vigente","notas":"Patente: RUL446 | PEUGEOT 405 SRI"},{"nombre":"Perez, Graciela Guadalupe","telefono":"5493445653846","compania":"San Cristóbal","tipo":"Hogar","npoliza":"01-02-07-30261932","premio":"237021","medioPago":"Tarjeta de crédito","fInicio":"2025-11-12","fVtoAnual":"2026-05-12","estado":"Vigente","notas":null},{"nombre":"Contard, Natalia Lorena","telefono":"5493442622465","compania":"San Cristóbal","tipo":"Automotor","npoliza":"01-02-01-31844340","premio":"31813","medioPago":"Débito en cuenta","fInicio":"2025-10-24","fVtoAnual":"2026-10-24","estado":"Cancelada","notas":"Patente: HPO505 | VOLKSWAGEN GOL (G4) 1.6 5P POWER AA DH"},{"nombre":"Gareis, Andres Alejandro","telefono":"5493442582450","compania":"San Cristóbal","tipo":"Vida","npoliza":"01-02-06-30073728","premio":"64589","medioPago":"Débito en cuenta","fInicio":"2025-11-18","fVtoAnual":"2026-11-18","estado":"Vigente","notas":null},{"nombre":"Martinez, Joana Noemi","telefono":"5493454116407","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-227766","premio":"11538","medioPago":"Débito en cuenta","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: 589GOX"},{"nombre":"Anaratone, Brian Gabriel","telefono":"5493447469360","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-224759","premio":"11178","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: A079AJU"},{"nombre":"Correa, Tadeo Exequiel","telefono":"5493446623316","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-02-407563","premio":"29467","medioPago":"Débito en cuenta","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: SIT619"},{"nombre":"Cardozo, Fabian Augusto","telefono":"5493442401574","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-02-424028","premio":"31118","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: XGG371"},{"nombre":"Capovila, Juan Marcos","telefono":"5493456443831","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-02-409000","premio":"53830","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: KSC107"},{"nombre":"Niebozyn, Celeste Soledad","telefono":"5493454017413","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-226476","premio":"16416","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Paz, Judith Fernanda","telefono":"5493456263095","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-02-409968","premio":"36905","medioPago":"Débito en cuenta","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: KVY475"},{"nombre":"Bouvet, Mauricio Agustin","telefono":"5493447499641","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-02-425475","premio":"25584","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: EXS602"},{"nombre":"Contard, Natalia Lorena","telefono":"5493442622465","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-02-425528","premio":"46204","medioPago":"Débito en cuenta","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: AH397AK"},{"nombre":"Romero, Martin Eduardo","telefono":"5493442516696","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-05-018370","premio":"83177","medioPago":"Tarjeta de crédito","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Hernandez, Rocio Gabriela","telefono":"5493442484993","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-06-039558","premio":"6067","medioPago":"Tarjeta de crédito","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Hernandez, Rocio Gabriela","telefono":"5493442484993","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-06-039559","premio":"17812","medioPago":"Tarjeta de crédito","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Vaiman, Hernan","telefono":"5493447436850","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-02-425677","premio":"29128","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: AB081HS"},{"nombre":"Balleretti, Nestor Fabian","telefono":"5493442557102","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-06-041639","premio":"6787","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Monzon, Graciela Beatriz","telefono":"5493442557102","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-06-041640","premio":"6787","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Cuffi, Osvaldo Javier","telefono":"5493442485450","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-06-041641","premio":"6787","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Martinez, Erica Alejandra","telefono":"5493442665267","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-06-041642","premio":"6787","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Navas, Gustavo Lucio","telefono":"5493442585396","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-06-041643","premio":"6787","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Zimmermann, Alexis Yamil","telefono":"5493446218462","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-231621","premio":"11978","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: 299GDZ"},{"nombre":"Olivera, Maria Del Pilar","telefono":"5493442502054","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-231701","premio":"19040","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: A234TUQ"},{"nombre":"Granata, Ariel Fernando","telefono":"5493447646681","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-227948","premio":"23941","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: A284CXZ"},{"nombre":"Sanchez, Luis Oscar","telefono":"5493442676053","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-223715","premio":"29924","medioPago":"Débito en cuenta","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: A283GJN"},{"nombre":"Arreguez, Matias Emanuel","telefono":"5493447575933","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-224657","premio":"11178","medioPago":"Débito en cuenta","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: 196GCU"},{"nombre":"Castro, Angel Alexander","telefono":"5493447464941","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-229155","premio":"11534","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: A1000JG"},{"nombre":"Benitez, Julieta Agostina","telefono":"5493454920257","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-224935","premio":"19549","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: A169WJJ"},{"nombre":"Echegaray, Ulises","telefono":"5493444523454","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-05-018094","premio":"22398","medioPago":"Débito en cuenta","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Martinez, Diego Donato","telefono":"5493447555836","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-02-423865","premio":"29128","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: RRH379"},{"nombre":"Vasquez, Maria Belen","telefono":"5493447452044","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-12-007707","premio":"31262","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":null},{"nombre":"Anaratone, Rodrigo Ezequiel","telefono":"5493447413223","compania":"Rivadavia","tipo":"Automotor","npoliza":"60-20-225822","premio":"17605","medioPago":"Efectivo","fInicio":null,"fVtoAnual":null,"estado":"Vigente","notas":"Patente: A028PQC"}]
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const SK  = 'mobi_polizas_v2';
+const TK  = 'mobi_tipos_v1';   // tipos de seguro personalizados
+const HK = 'mobi_historial_v1';
+const CK = 'mobi_cal_v1';
+let polizas = [], historial = [], calendario = {};
+let editIdx = null, renovarIdx = null, currentPage = 1;
+const PER = 50;
+
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+// ─── TIPOS DE SEGURO ─────────────────────────────────────────────────────────
+const TIPOS_BASE = [
+  'Automotor', 'Vida', 'Hogar', 'Comercio',
+  'Accidentes Personales', 'AP Colectivo', 'AP Individual',
+  'Integral de Comercio', 'Moto', 'Embarcacion', 'ART', 'Retiro'
+];
+
+function getTipos() {
+  var extra = [];
+  try { extra = JSON.parse(localStorage.getItem(TK) || '[]'); } catch(e) {}
+  // Merge base + custom, deduplicate, sort alphabetically keeping Automotor first
+  var todos = TIPOS_BASE.concat(extra.filter(function(t) {
+    return TIPOS_BASE.indexOf(t) === -1;
+  }));
+  todos.sort(function(a, b) {
+    if (a === 'Automotor') return -1;
+    if (b === 'Automotor') return 1;
+    return a.localeCompare(b, 'es');
+  });
+  return todos;
+}
+
+function saveTipos(tipos) {
+  var extra = tipos.filter(function(t) { return TIPOS_BASE.indexOf(t) === -1; });
+  localStorage.setItem(TK, JSON.stringify(extra));
+}
+
+function populateTipoSelect(valorActual) {
+  var sel = document.getElementById('fTipo');
+  if (!sel) return;
+  var tipos = getTipos();
+  sel.innerHTML = tipos.map(function(t) {
+    return '<option value="' + t + '"' + (t === valorActual ? ' selected' : '') + '>' + t + '</option>';
+  }).join('');
+  // Also add "Otro (escribir)..." as last option hint
+  if (valorActual && tipos.indexOf(valorActual) === -1) {
+    sel.innerHTML += '<option value="' + valorActual + '" selected>' + valorActual + '</option>';
+  }
+}
+
+function agregarTipo() {
+  var nuevo = prompt('Nombre del nuevo tipo de seguro:');
+  if (!nuevo) return;
+  nuevo = nuevo.trim();
+  if (!nuevo) return;
+  var tipos = getTipos();
+  if (tipos.indexOf(nuevo) !== -1) {
+    alert('Ese tipo ya existe en la lista.');
+    return;
+  }
+  saveTipos(tipos.concat([nuevo]));
+  populateTipoSelect(nuevo); // re-render select with new option selected
+  alert('Tipo "' + nuevo + '" agregado correctamente.');
+}
+
+function eliminarTipos() {
+  var tipos = getTipos();
+  var extra = tipos.filter(function(t) { return TIPOS_BASE.indexOf(t) === -1; });
+  if (extra.length === 0) { alert('No hay tipos personalizados para eliminar.'); return; }
+  var lista = extra.map(function(t, i) { return (i+1) + '. ' + t; }).join('\n');
+  var num = prompt('Tipos personalizados:\n' + lista + '\n\nIngresa el numero del tipo a eliminar (o Cancelar):');
+  if (!num) return;
+  var idx = parseInt(num) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= extra.length) { alert('Numero invalido.'); return; }
+  var eliminar = extra[idx];
+  if (!confirm('Eliminar tipo "' + eliminar + '"?')) return;
+  saveTipos(tipos.filter(function(t) { return t !== eliminar; }));
+  populateTipoSelect('Automotor');
+  alert('Tipo eliminado.');
+}
+
+// ─── DATOS ────────────────────────────────────────────────────────────────────
+function loadData() {
+  const s = localStorage.getItem(SK);
+  if (s) {
+    polizas = JSON.parse(s);
+    // migrate missing fields
+    polizas.forEach(p => {
+      if (!p.periodicidad) p.periodicidad = 'mensual';
+      if (p.proxVtoManual === undefined) p.proxVtoManual = null;
+      if (p.notificado === undefined) p.notificado = false;
+      if (!p.diaVtoMensual && p.diaVto) p.diaVtoMensual = p.diaVto; // compat
+    });
+  } else {
+    polizas = INITIAL_DATA.map((p, i) => ({
+      ...p, id: 'p'+Date.now()+i,
+      proxVtoManual: null, periodicidad: 'mensual',
+      diaVtoMensual: null, notificado: false, notas: p.notas||''
+    }));
+    save();
+  }
+  const h = localStorage.getItem(HK);
+  historial = h ? JSON.parse(h) : [];
+  const c = localStorage.getItem(CK);
+  calendario = c ? JSON.parse(c) : {c1:'',c2:'',c3:'',e1:'',e2:'',e3:''};
+}
+function save() { localStorage.setItem(SK, JSON.stringify(polizas)); }
+function saveH() { localStorage.setItem(HK, JSON.stringify(historial)); }
+function saveC() { localStorage.setItem(CK, JSON.stringify(calendario)); }
+
+// ─── DATE UTILS ───────────────────────────────────────────────────────────────
+function today() { return new Date().toISOString().split('T')[0]; }
+
+function diasHasta(f) {
+  if (!f) return null;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return Math.floor((new Date(f+'T00:00:00') - hoy) / 86400000);
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const [y,m,day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function formatPremio(p) {
+  if (!p || p==='0') return '—';
+  return '$'+parseInt(p).toLocaleString('es-AR');
+}
+
+// Calcula próximo vencimiento desde un día fijo del mes
+function proxMensual(dia) {
+  if (!dia) return null;
+  const d = parseInt(dia), hoy = new Date(); hoy.setHours(0,0,0,0);
+  let c = new Date(hoy.getFullYear(), hoy.getMonth(), d);
+  if (c < hoy) c = new Date(hoy.getFullYear(), hoy.getMonth()+1, d);
+  return `${c.getFullYear()}-${String(c.getMonth()+1).padStart(2,'0')}-${String(c.getDate()).padStart(2,'0')}`;
+}
+
+// Próxima EXTRACCIÓN de débito SC — usada para el semáforo y la tabla
+function proximaExtraccion() {
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return [calendario.e1, calendario.e2, calendario.e3]
+    .filter(Boolean)
+    .map(d => ({ d, diff: diasHasta(d) }))
+    .filter(x => x.diff !== null && x.diff >= 0)
+    .sort((a,b) => a.diff - b.diff)[0] || null;
+}
+
+// Próximo corte SC — solo info para el corredor (cuándo avisar)
+function proximoCorte() {
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return [calendario.c1, calendario.c2, calendario.c3]
+    .filter(Boolean)
+    .map(d => ({ d, diff: diasHasta(d) }))
+    .filter(x => x.diff !== null && x.diff >= 0)
+    .sort((a,b) => a.diff - b.diff)[0] || null;
+}
+
+// La fecha relevante para el semáforo y la tabla
+function fechaProximo(p) {
+  if (p.proxVtoManual) return p.proxVtoManual;           // manual override (pago adelantado, trimestral)
+  if (p.diaVtoMensual) return proxMensual(p.diaVtoMensual); // día fijo automático
+  return p.proxVto || null;                              // legacy
+}
+
+// ¿Tarjeta SC? → cobro auto día 15, no alertar
+function esTarjetaSC(p) {
+  return p.compania === 'San Cristóbal' && p.medioPago === 'Tarjeta de crédito';
+}
+// ¿Débito SC? → usa calendario de cortes para semáforo
+function esDebitoSC(p) {
+  return p.compania === 'San Cristóbal' && p.medioPago === 'Débito en cuenta';
+}
+
+// Días hasta el próximo evento relevante
+// Débito SC → usa fecha de EXTRACCIÓN (cuándo se debita el dinero)
+function diasProximo(p) {
+  if (esDebitoSC(p)) {
+    const e = proximaExtraccion();
+    return e ? e.diff : null;
+  }
+  return diasHasta(fechaProximo(p));
+}
+
+// Semáforo
+function semaforo(p) {
+  if (p.estado === 'Cancelada') return 'gray';
+  if (esTarjetaSC(p)) return 'tarjeta';
+  const d = diasProximo(p);
+  if (d === null) return 'sin_fecha';
+  if (d <= 3) return 'rojo';
+  if (d <= 7) return 'amarillo';
+  return 'verde';
+}
+
+// ─── BADGES ───────────────────────────────────────────────────────────────────
+function dotHtml(s) {
+  const map = {rojo:'dot-red',amarillo:'dot-yellow',verde:'dot-green',gray:'dot-gray',sin_fecha:'dot-gray',tarjeta:'dot-blue'};
+  return `<span class="dot ${map[s]||'dot-gray'}"></span>`;
+}
+function diasBadge(p) {
+  const s = semaforo(p);
+  if (p.notificado) return `<span class="badge b-notif">✓ Notificado</span>`;
+  if (s === 'gray') return `<span class="badge b-gray">Cancelada</span>`;
+  if (s === 'tarjeta') return `<span class="badge b-blue">Día 15 auto</span>`;
+  if (s === 'sin_fecha') return `<span class="badge b-gray">Sin fecha</span>`;
+  const d = diasProximo(p);
+  if (d === null) return `<span class="badge b-gray">—</span>`;
+  if (d < 0) return `<span class="badge b-red">Vencida ${Math.abs(d)}d</span>`;
+  if (s === 'rojo') return `<span class="badge b-red">${d === 0 ? 'HOY' : d+'d'}</span>`;
+  if (s === 'amarillo') return `<span class="badge b-yellow">${d}d</span>`;
+  return `<span class="badge b-green">${d}d</span>`;
+}
+function compBadge(c) {
+  const m = {'San Cristóbal':['b-comp-sc','S.Cristóbal'],'Rivadavia':['b-comp-ri','Rivadavia'],'Nación Seguros':['b-comp-na','Nación'],'Sancor':['b-comp-sa','Sancor']};
+  const [cls,lbl] = m[c]||['b-comp-sc',c||'—'];
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+function pagoBadge(m) {
+  const map = {'Efectivo':'b-pago-ef','Tarjeta de crédito':'b-pago-ta','Débito en cuenta':'b-pago-de','Completar':'b-pago-co'};
+  return `<span class="badge ${map[m]||'b-pago-co'}">${m||'—'}</span>`;
+}
+function estadoBadge(e) {
+  return `<span class="badge ${e==='Vigente'?'b-estado-v':'b-estado-c'}">${e}</span>`;
+}
+
+// ─── CALENDARIO ───────────────────────────────────────────────────────────────
+function toggleCal() {
+  const b = document.getElementById('bannerCal');
+  const open = b.style.display !== 'none';
+  if (!open) {
+    const now = new Date();
+    document.getElementById('calMesLabel').textContent =
+      now.toLocaleString('es-AR',{month:'long',year:'numeric'});
+    ['c1','c2','c3','e1','e2','e3'].forEach(k =>
+      document.getElementById('cal'+k.toUpperCase()).value = calendario[k]||'');
+  }
+  b.style.display = open ? 'none' : 'block';
+}
+function guardarCalendario() {
+  ['c1','c2','c3','e1','e2','e3'].forEach(k =>
+    calendario[k] = document.getElementById('cal'+k.toUpperCase()).value);
+  saveC();
+  toggleCal();
+  refresh();
+}
+
+// ─── PANEL ACCION RAPIDA ─────────────────────────────────────────────────────
+let panelAccionVisible = true;
+
+function togglePanelAccion() {
+  panelAccionVisible = !panelAccionVisible;
+  document.getElementById('accionList').style.display = panelAccionVisible ? '' : 'none';
+  document.getElementById('btnToggleAccion').textContent = panelAccionVisible ? 'Ocultar ▲' : 'Mostrar ▼';
+}
+
+function marcarTodosHoy() {
+  // Marca como notificados todos los urgentes (rojo) vigentes no notificados
+  const urgentes = polizas.filter(p => semaforo(p) === 'rojo' && !p.notificado && p.estado === 'Vigente');
+  urgentes.forEach(p => {
+    p.notificado = true;
+    registrarWA(polizas.indexOf(p));
+  });
+  save();
+  refresh();
+}
+
+function renderPanelAccion() {
+  const urgentes = polizas.filter(p => semaforo(p) === 'rojo' && !p.notificado && p.estado === 'Vigente');
+  const proximos  = polizas.filter(p => semaforo(p) === 'amarillo' && !p.notificado && p.estado === 'Vigente');
+  const todos = [...urgentes, ...proximos];
+
+  const countEl   = document.getElementById('accionCount');
+  const listEl    = document.getElementById('accionList');
+  const btnMarcar = document.getElementById('btnMarcarTodos');
+  if (!listEl) return;
+
+  countEl.textContent = todos.length > 0 ? '(' + todos.length + ' para avisar)' : '';
+  btnMarcar.style.display = urgentes.length > 0 ? 'inline-flex' : 'none';
+
+  if (todos.length === 0) {
+    listEl.innerHTML = '<div class="accion-empty">Sin vencimientos urgentes por el momento</div>';
+    return;
+  }
+
+  listEl.innerHTML = todos.map(function(p) {
+    var gi  = polizas.indexOf(p);
+    var s   = semaforo(p);
+    var d   = diasProximo(p);
+    var tel = limpiarTel(p.telefono);
+    var msg = buildWaMsg(p);
+    var dTxt = d === 0 ? 'HOY' : d < 0 ? 'Vencio hace ' + Math.abs(d) + 'd' : d + ' dias';
+    var detalle = (p.compania || '') + ' · ' + (p.tipo || '') + ' · ' + (p.medioPago || '');
+    if (esDebitoSC(p)) {
+      var ext = proximaExtraccion();
+      if (ext) detalle += ' · Ext. ' + formatDate(ext.d);
+    }
+    var waBtn = tel
+      ? '<a href="https://wa.me/' + tel + '?text=' + encodeURIComponent(msg) + '" target="_blank" class="btn-wa btn-sm" onclick="marcarNotif(' + gi + ')">WA</a>'
+      : '<span style="font-size:10px;color:var(--muted)">Sin tel</span>';
+    var toggleBtn = p.notificado
+      ? '<button class="btn btn-orange btn-sm" onclick="desmarcarNotif(' + gi + ')" title="Revertir">&#8635;</button>'
+      : '<button class="btn btn-ghost btn-sm" onclick="marcarNotif(' + gi + ')" title="Marcar notificado">&#10003;</button>';
+    return '<div class="accion-card ' + s + (p.notificado ? ' notificado' : '') + '">'
+      + '<div class="accion-card-left">'
+      + dotHtml(s)
+      + '<div>'
+      + '<div class="accion-nombre" title="' + p.nombre + '">' + p.nombre + '</div>'
+      + '<div class="accion-det">' + (p.npoliza || '—') + ' · ' + detalle + '</div>'
+      + '</div></div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
+      + '<span class="accion-badge ' + s + '">' + dTxt + '</span>'
+      + '<div class="accion-actions">' + waBtn + toggleBtn + '</div>'
+      + '</div></div>';
+  }).join('');
+}
+
+
+// ─── STATS & BANNERS ─────────────────────────────────────────────────────────
+function renderStats() {
+  const total = polizas.length;
+  const vigentes = polizas.filter(p => p.estado==='Vigente').length;
+  const alertas = polizas.filter(p => semaforo(p)==='rojo' && !p.notificado && p.estado==='Vigente').length;
+  const proximas = polizas.filter(p => semaforo(p)==='amarillo' && !p.notificado && p.estado==='Vigente').length;
+  const efectivo = polizas.filter(p => p.medioPago==='Efectivo' && p.estado==='Vigente').length;
+  const completar = polizas.filter(p => p.medioPago==='Completar' && p.estado==='Vigente').length;
+  const corte = proximoCorte();
+  const extraccion = proximaExtraccion();
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card total"><div class="stat-label">Total pólizas</div><div class="stat-val">${total}</div></div>
+    <div class="stat-card vigente"><div class="stat-label">Vigentes</div><div class="stat-val">${vigentes}</div></div>
+    <div class="stat-card alerta"><div class="stat-label">🔴 Urgentes (≤3d)</div><div class="stat-val">${alertas}</div></div>
+    <div class="stat-card proximas"><div class="stat-label">🟡 Próximas (4-7d)</div><div class="stat-val">${proximas}</div></div>
+    <div class="stat-card efectivo"><div class="stat-label">💵 Efectivo activas</div><div class="stat-val">${efectivo}</div></div>
+    ${completar > 0 ? `<div class="stat-card alerta"><div class="stat-label">⚠ Pago a completar</div><div class="stat-val" style="font-size:20px">${completar}</div></div>` : ''}
+    <div class="stat-card proximas clickable" onclick="toggleCal()">
+      <div class="stat-label">📅 Próx. extracción débito SC</div>
+      ${(()=>{ const ext = proximaExtraccion(); return ext
+        ? `<div class="stat-val" style="font-size:18px">${formatDate(ext.d)}</div><div class="stat-sub">${ext.diff===0?'HOY':'en '+ext.diff+' días'}</div>`
+        : `<div style="font-size:11px;color:var(--muted);margin-top:8px">Sin configurar — click aquí</div>`; })()}
+    </div>
+  `;
+
+  const badge = document.getElementById('badgeAlert');
+  // ALERTAS URGENTES — excluir tarjeta SC
+  const urgentes = polizas.filter(p => semaforo(p)==='rojo' && !p.notificado && p.estado==='Vigente');
+  const bA = document.getElementById('bannerAlertas');
+  if (urgentes.length > 0) {
+    bA.style.display = 'block';
+    badge.style.display = 'inline';
+    badge.textContent = `⚠ ${urgentes.length}`;
+    const corte = proximoCorte();
+    document.getElementById('alertasList').innerHTML = urgentes.map(p => {
+      const gi = polizas.indexOf(p);
+      const d = diasProximo(p);
+      const tel = limpiarTel(p.telefono);
+      const msg = buildWaMsg(p);
+      const info = esDebitoSC(p) && extraccion ? ` · ext. ${formatDate(extraccion.d)}` : '';
+      const dTxt = d===null?'sin fecha':d===0?'HOY':d<0?`venció hace ${Math.abs(d)}d`:`${d}d`;
+      return `<div class="banner-row">
+        <span><strong>${p.nombre}</strong> · ${p.npoliza} · ${dTxt} · ${p.medioPago}${info}</span>
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          ${tel ? `<a href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}" target="_blank" class="btn-wa btn-sm" onclick="marcarNotif(${gi})">📲 Notificar</a>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="marcarNotif(${gi})">✓ Marcar</button>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    bA.style.display = 'none';
+    badge.style.display = 'none';
+  }
+
+  // TARJETA SC BANNER
+  const tarjetas = polizas.filter(p => esTarjetaSC(p) && p.estado==='Vigente');
+  const bT = document.getElementById('bannerTarjeta');
+  if (tarjetas.length > 0) {
+    bT.style.display = 'block';
+    document.getElementById('tarjetaLista').innerHTML = tarjetas.map(p => {
+      const tel = limpiarTel(p.telefono);
+      const msg = buildWaMsg(p);
+      const gi = polizas.indexOf(p);
+      return `<div class="banner-row">
+        <span>${p.nombre} · <span style="color:var(--muted)">${p.npoliza}</span> · ${p.tipo}</span>
+        ${tel ? `<a href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}" target="_blank" class="btn-wa btn-sm" style="font-size:10px" onclick="registrarWA(${gi})">📲 Avisar igual</a>` : ''}
+      </div>`;
+    }).join('');
+  }
+}
+
+function toggleTarjeta() {
+  const l = document.getElementById('tarjetaLista');
+  const btn = document.querySelector('#bannerTarjeta .btn-ghost');
+  const open = l.style.display !== 'none';
+  l.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? 'Ver lista ▾' : 'Ocultar ▲';
+}
+
+function marcarNotif(idx) {
+  polizas[idx].notificado = true;
+  save();
+  registrarWA(idx);
+  refresh();
+}
+function desmarcarNotif(idx) {
+  polizas[idx].notificado = false;
+  save();
+  refresh();
+}
+
+// ─── WA ───────────────────────────────────────────────────────────────────────
+function limpiarTel(t) {
+  if (!t) return null;
+  const l = t.replace(/\D/g,'');
+  if (l.length > 15 || l === '0' || t === 'Sin telefono') return null;
+  return l;
+}
+function primerNombre(n) {
+  if (!n) return '';
+  const p = n.split(',');
+  return p.length > 1 ? p[1].trim().split(' ')[0] : n.trim().split(' ')[0];
+}
+function buildWaMsg(p) {
+  var nombre = primerNombre(p.nombre);
+  var tipo   = p.tipo || 'seguro';
+  var comp   = p.compania || '';
+  var nro    = p.npoliza  || '';
+  var dia    = p.diaVtoMensual;
+  var fProx  = fechaProximo(p);
+  var msg    = '';
+
+  if (esDebitoSC(p)) {
+    var fechasExt = [calendario.e1, calendario.e2, calendario.e3].filter(Boolean);
+    msg  = 'Hola ' + nombre + ', te escribo para informarte que este mes tu seguro de ';
+    msg += '*' + tipo + '* (póliza N° *' + nro + '* — ' + comp + ') se intentará debitar automáticamente en las siguientes fechas:\n';
+    if (fechasExt.length > 0) {
+      fechasExt.forEach(function(f, i) {
+        msg += '\n• ' + (i+1) + '° intento: *' + formatDate(f) + '*';
+      });
+    } else {
+      msg += '\n(Fechas a confirmar — consultame)';
+    }
+    msg += '\n\nTe pido que te asegures de tener fondos disponibles en tu cuenta desde el primer intento para que el débito se procese sin inconvenientes y tu cobertura no se interrumpa.';
+    msg += '\n\nCualquier consulta o si querés evaluar el cambio a tarjeta de crédito para evitar estos controles, avisame y lo resolvemos.';
+
+  } else if (esTarjetaSC(p)) {
+    msg  = 'Hola ' + nombre + ', te escribo para recordarte que tu seguro de ';
+    msg += '*' + tipo + '* (póliza N° *' + nro + '* — ' + comp + ') se cobra automáticamente el *día 15* de cada mes a tu tarjeta de crédito.';
+    msg += '\n\nNo necesitás hacer nada. Quedá tranquilo/a que todo está en orden. Ante cualquier consulta, estoy disponible.';
+
+  } else if (p.medioPago === 'Efectivo' || p.medioPago === 'Completar') {
+    msg = 'Hola ' + nombre + ', te escribo para recordarte que';
+    if (dia) {
+      var fFmt = fProx ? formatDate(fProx) : 'el día ' + dia;
+      msg += ' el *día ' + dia + '* de cada mes vence el pago de tu seguro de *' + tipo + '* (póliza N° *' + nro + '* — ' + comp + '). El próximo vencimiento es el *' + fFmt + '*.';
+    } else if (fProx) {
+      var dif = diasHasta(fProx);
+      var sfx = dif === 0 ? ' — *¡vence hoy!*' : dif > 0 ? ' — en ' + dif + ' días' : ' — venció hace ' + Math.abs(dif) + ' días';
+      msg += ' el *' + formatDate(fProx) + '* vence el pago de tu seguro de *' + tipo + '* (póliza N° *' + nro + '* — ' + comp + ')' + sfx + '.';
+    } else {
+      msg += ' tenés un seguro de *' + tipo + '* (póliza N° *' + nro + '* — ' + comp + ') con vencimiento próximo.';
+    }
+    msg += '\n\nPodés abonarlo en cualquier sucursal de *Rapipago* o *Pago Fácil*, o bien sumarlo como servicio desde la app de *Mercado Pago* para que se debite automáticamente cada mes.';
+    msg += '\n\nAprovecho para contarte que también podés vincularlo a *débito en cuenta* por CBU o a una *tarjeta de crédito*, y olvidarte de ir a pagar cada mes. Es más cómodo y evitás quedarte sin cobertura por un olvido. Si te interesa, avisame.';
+
+  } else if (p.medioPago === 'Debito en cuenta' || p.medioPago === 'Débito en cuenta') {
+    msg = 'Hola ' + nombre + ', te escribo para recordarte que';
+    if (fProx) {
+      msg += ' el *' + formatDate(fProx) + '* se debitará de tu cuenta el importe correspondiente a tu seguro de *' + tipo + '* (póliza N° *' + nro + '* — ' + comp + ').';
+    } else {
+      msg += ' próximamente se debitará de tu cuenta el importe de tu seguro de *' + tipo + '* (póliza N° *' + nro + '* — ' + comp + ').';
+    }
+    msg += '\n\nAsegurate de tener fondos disponibles ese día para que el débito se procese correctamente y tu cobertura se mantenga vigente.';
+    msg += '\n\nSi querés, podés vincular el seguro a una *tarjeta de crédito* en lugar del débito en cuenta. Con tarjeta tenés más días para pagar, sumás puntos y evitás rechazos por falta de fondos. Avisame si te interesa.';
+
+  } else {
+    msg = 'Hola ' + nombre + ', te escribo para informarte que tenés un seguro de *' + tipo + '* (póliza N° *' + nro + '* — ' + comp + ') activo. Ante cualquier consulta, estoy disponible.';
+  }
+
+  return msg;
+}
+
+// Mensaje especial para pólizas canceladas — ofrecimiento con otra compañía
+function buildWaMsgCancelada(p) {
+  var nombre = primerNombre(p.nombre);
+  var tipo   = p.tipo || 'seguro';
+  var comp   = p.compania || '';
+  var msg  = 'Hola ' + nombre + ', te escribo porque veo que tu póliza de *' + tipo + '* (N° *' + p.npoliza + '* — ' + comp + ') se encuentra actualmente cancelada.';
+  msg += '\n\nQuiero contarte que tenemos muy buenas opciones para renovar tu cobertura con otras compañías de primer nivel como *San Cristóbal*, *Sancor*, *Rivadavia* o *Nación Seguros*, con planes que se adaptan a tu situación y presupuesto.';
+  msg += '\n\nSi querés que te prepare una cotización sin compromiso, con gusto lo hago. ¡Avisame cuando quieras!';
+  return msg;
+}
+
+function registrarWA(idx) {
+  const p = polizas[idx];
+  historial.unshift({
+    id: 'h'+Date.now(), fecha: new Date().toLocaleString('es-AR'),
+    nombre: p.nombre, npoliza: p.npoliza, compania: p.compania,
+    proxVto: fechaProximo(p), medioPago: p.medioPago, email: p.email||null
+  });
+  saveH();
+}
+
+// ─── TABLE ────────────────────────────────────────────────────────────────────
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const fE = document.getElementById('filtEstado').value;
+  const fC = document.getElementById('filtCompania').value;
+  const fP = document.getElementById('filtPago').value;
+  const fS = document.getElementById('filtSem').value;
+  return polizas.filter(p => {
+    if (q && !((p.nombre||'').toLowerCase().includes(q)||(p.npoliza||'').toLowerCase().includes(q)||(p.notas||'').toLowerCase().includes(q)||(p.telefono||'').includes(q))) return false;
+    if (fE && p.estado !== fE) return false;
+    if (fC && p.compania !== fC) return false;
+    if (fP && p.medioPago !== fP) return false;
+    if (fS && semaforo(p) !== fS) return false;
+    return true;
+  });
+}
+
+function renderTable() {
+  const filtered = getFiltered();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const page = filtered.slice((currentPage-1)*PER, currentPage*PER);
+  const tb = document.getElementById('tableBody');
+  if (!page.length) {
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty"><big>🔍</big>No se encontraron pólizas</div></td></tr>`;
+  } else {
+    tb.innerHTML = page.map(p => {
+      const gi = polizas.indexOf(p);
+      const s = semaforo(p);
+      const tel = limpiarTel(p.telefono);
+      const msg = buildWaMsg(p);
+      const fProx = fechaProximo(p);
+      const corte = proximoCorte();
+
+      // Construir celda "próximo vencimiento"
+      let vtoCell;
+      if (esTarjetaSC(p)) {
+        vtoCell = `<span class="badge b-blue">Día 15 auto</span>`;
+      } else if (esDebitoSC(p)) {
+        const ext = proximaExtraccion();
+        const corteInfo = proximoCorte();
+        vtoCell = ext
+          ? `<span class="badge b-yellow" title="Próxima extracción">Ext. ${formatDate(ext.d)}</span>`
+          + (corteInfo ? `<span style="font-size:9px;color:var(--muted);margin-left:4px">corte ${formatDate(corteInfo.d)}</span>` : '')
+          : `<span style="color:var(--muted);font-size:10px">Configurar cal. SC</span>`;
+      } else if (p.diaVtoMensual) {
+        const periLabel = p.periodicidad && p.periodicidad !== 'mensual' ? ` <span style="font-size:9px;color:var(--muted)">(${p.periodicidad})</span>` : '';
+        vtoCell = `<span class="badge b-blue">día ${p.diaVtoMensual}</span> <span style="font-size:10px;color:var(--accent2)">${formatDate(fProx)}</span>${periLabel}`;
+      } else if (fProx) {
+        const periLabel = p.periodicidad && p.periodicidad !== 'mensual' ? ` <span style="font-size:9px;color:var(--muted)">(${p.periodicidad})</span>` : '';
+        vtoCell = `<span style="font-size:11px;color:var(--accent2)">${formatDate(fProx)}</span>${periLabel}`;
+      } else {
+        vtoCell = `<span style="color:var(--muted)">—</span>`;
+      }
+
+      return `<tr class="${p.notificado?'notificado':''}">
+        <td><div class="sem-cell">${dotHtml(s)} ${estadoBadge(p.estado)}</div></td>
+        <td class="nombre-cell" title="${p.nombre}\n${p.notas||''}">${p.nombre}</td>
+        <td>${compBadge(p.compania)}</td>
+        <td class="npoliza">${p.npoliza||'—'}</td>
+        <td style="color:var(--muted);font-size:10px">${p.tipo||'—'}</td>
+        <td>${vtoCell} ${diasBadge(p)}</td>
+        <td>${pagoBadge(p.medioPago)}</td>
+        <td class="col-acc">
+          <div style="display:flex;gap:3px;align-items:center">
+            ${tel
+              ? (p.estado === 'Cancelada'
+                  ? `<a href="https://wa.me/${tel}?text=${encodeURIComponent(buildWaMsgCancelada(p))}" target="_blank" class="btn-wa btn-sm" style="background:#6366f1" title="Enviar oferta de renovación">✉</a>`
+                  : `<a href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}" target="_blank" class="btn-wa btn-sm" onclick="marcarNotif(${gi})" title="Enviar WA y marcar notificado">📲</a>`)
+              : `<span style="font-size:10px;color:var(--muted)">—</span>`}
+            ${p.notificado ? `<button class="btn btn-orange btn-sm" onclick="desmarcarNotif(${gi})" title="Quitar marca de notificado">↺</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="openRenovar(${gi})" title="Renovar vencimiento">🔄</button>
+            <button class="btn btn-ghost btn-sm" onclick="openEdit(${gi})" title="Editar">✏️</button>
+            <button class="btn btn-ghost btn-sm" onclick="delPoliza(${gi})" title="Eliminar" style="color:var(--red)">🗑</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+  renderPag(totalPages, filtered.length);
+}
+
+function renderPag(total, count) {
+  const pg = document.getElementById('pagination');
+  if (total <= 1) { pg.innerHTML = `<span class="page-info">${count} pólizas</span>`; return; }
+  let h = `<span class="page-info">${count} pólizas</span>`;
+  h += `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  for (let i=1; i<=total; i++) {
+    if (i===1||i===total||Math.abs(i-currentPage)<=1)
+      h += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+    else if (Math.abs(i-currentPage)===2) h += `<span class="page-info">…</span>`;
+  }
+  h += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===total?'disabled':''}>›</button>`;
+  pg.innerHTML = h;
+}
+function goPage(p) {
+  currentPage = Math.max(1, Math.min(p, Math.ceil(getFiltered().length/PER)));
+  renderTable();
+}
+function clearFilters() {
+  ['searchInput','filtEstado','filtCompania','filtPago','filtSem'].forEach(id => document.getElementById(id).value='');
+  currentPage = 1; renderTable();
+}
+
+// ─── MODAL PÓLIZA ─────────────────────────────────────────────────────────────
+function openModal() {
+  editIdx = null;
+  document.getElementById('modalTitle').textContent = 'Nueva póliza';
+  ['fNombre','fTelefono','fEmail','fNpoliza','fPremio','fNotas','fDiaVto'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('fCompania').value = '';
+  document.getElementById('fMedioPago').value = '';
+  populateTipoSelect('Automotor');
+  document.getElementById('fEstado').value = 'Vigente';
+  document.getElementById('fFInicio').value = today();
+  document.getElementById('fFVto').value = '';
+  document.getElementById('fPeriodicidad').value = 'mensual';
+  document.getElementById('fProxVtoManual').value = '';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function openEdit(idx) {
+  editIdx = idx;
+  const p = polizas[idx];
+  document.getElementById('modalTitle').textContent = 'Editar póliza';
+  document.getElementById('fNombre').value = p.nombre||'';
+  document.getElementById('fTelefono').value = p.telefono||'';
+  document.getElementById('fEmail').value = p.email||'';
+  document.getElementById('fCompania').value = p.compania||'';
+  document.getElementById('fMedioPago').value = p.medioPago||'';
+  populateTipoSelect(p.tipo || 'Automotor');
+  document.getElementById('fNpoliza').value = p.npoliza||'';
+  document.getElementById('fPremio').value = p.premio||'';
+  document.getElementById('fEstado').value = p.estado||'Vigente';
+  document.getElementById('fFInicio').value = p.fInicio||'';
+  document.getElementById('fFVto').value = p.fVtoAnual||'';
+  document.getElementById('fDiaVto').value = p.diaVtoMensual||'';
+  document.getElementById('fPeriodicidad').value = p.periodicidad||'mensual';
+  document.getElementById('fProxVtoManual').value = p.proxVtoManual||'';
+  document.getElementById('fNotas').value = p.notas||'';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function savePoliza() {
+  const nombre = document.getElementById('fNombre').value.trim();
+  if (!nombre) { alert('Ingresá el nombre'); return; }
+  const diaVto = document.getElementById('fDiaVto').value.trim() || null;
+  const proxVtoManual = document.getElementById('fProxVtoManual').value || null;
+  const rec = {
+    id: editIdx !== null ? polizas[editIdx].id : ('p'+Date.now()),
+    nombre, telefono: document.getElementById('fTelefono').value.trim(),
+    email: document.getElementById('fEmail').value.trim(),
+    compania: document.getElementById('fCompania').value,
+    medioPago: document.getElementById('fMedioPago').value,
+    tipo: document.getElementById('fTipo').value,
+    npoliza: document.getElementById('fNpoliza').value.trim(),
+    premio: document.getElementById('fPremio').value.trim(),
+    estado: document.getElementById('fEstado').value,
+    fInicio: document.getElementById('fFInicio').value||null,
+    fVtoAnual: document.getElementById('fFVto').value||null,
+    proxVto: document.getElementById('fFVto').value||null,
+    diaVtoMensual: diaVto, periodicidad: document.getElementById('fPeriodicidad').value,
+    proxVtoManual: proxVtoManual,
+    notificado: editIdx !== null ? (polizas[editIdx].notificado||false) : false,
+    notas: document.getElementById('fNotas').value.trim()
+  };
+  if (editIdx !== null) polizas[editIdx] = rec; else polizas.push(rec);
+  save(); closeModal(); refresh();
+}
+function delPoliza(idx) {
+  if (!confirm(`¿Eliminar la póliza de ${polizas[idx].nombre}?`)) return;
+  polizas.splice(idx,1); save(); refresh();
+}
+
+// ─── MODAL RENOVAR ────────────────────────────────────────────────────────────
+function openRenovar(idx) {
+  renovarIdx = idx;
+  const p = polizas[idx];
+  const meses = {mensual:1,trimestral:3,semestral:6,anual:12}[p.periodicidad||'mensual']||1;
+  const base = fechaProximo(p) || today();
+  const d = new Date(base+'T00:00:00');
+  d.setMonth(d.getMonth()+meses);
+  const sugerida = d.toISOString().split('T')[0];
+  document.getElementById('renovarFecha').value = sugerida;
+  document.getElementById('renovarInfo').innerHTML = `
+    <strong>Asegurado:</strong> ${p.nombre}<br>
+    <strong>Póliza:</strong> ${p.npoliza}<br>
+    <strong>Compañía:</strong> ${p.compania}<br>
+    <strong>Medio de pago:</strong> ${p.medioPago}<br>
+    <strong>Periodicidad:</strong> ${p.periodicidad||'mensual'}<br>
+    ${p.diaVtoMensual ? `<strong>Día vto. mensual:</strong> día ${p.diaVtoMensual} (cálculo automático)<br>` : ''}
+    <strong>Vto. actual:</strong> ${formatDate(fechaProximo(p))}<br>
+    <strong>Nuevo vto. sugerido:</strong> ${formatDate(sugerida)}
+  `;
+  document.getElementById('renovarOverlay').classList.add('open');
+}
+function closeRenovar() { document.getElementById('renovarOverlay').classList.remove('open'); }
+function confirmarRenovar() {
+  const nueva = document.getElementById('renovarFecha').value;
+  if (!nueva) { alert('Ingresá la fecha'); return; }
+  polizas[renovarIdx].proxVtoManual = nueva;
+  polizas[renovarIdx].proxVto = nueva;
+  polizas[renovarIdx].notificado = false; // reset para nuevo ciclo
+  save(); closeRenovar(); refresh();
+}
+
+// ─── HISTORIAL ────────────────────────────────────────────────────────────────
+function renderHistorial() {
+  var el = document.getElementById('historialList');
+  if (!el) return;
+  if (!historial || !historial.length) {
+    el.innerHTML = '<div class="empty"><big>📨</big>Sin mensajes enviados aún.<br><span style="font-size:12px">Los mensajes aparecen aquí cada vez que hacés clic en el botón WA de una póliza.</span></div>';
+    return;
+  }
+  el.innerHTML = historial.map(function(h) {
+    return '<div class="hist-item">'
+      + '<div class="hist-nombre">' + (h.nombre || '—') + '</div>'
+      + '<div class="hist-poliza">' + (h.npoliza || '—') + ' · ' + (h.compania || '') + ' · ' + pagoBadge(h.medioPago) + '</div>'
+      + '<div class="hist-fecha">📅 ' + (h.fecha || '') + (h.proxVto ? ' · Vto: ' + formatDate(h.proxVto) : '') + (h.email ? ' · 📧 ' + h.email : '') + '</div>'
+      + '</div>';
+  }).join('');
+}
+function clearHistorial() {
+  if (!confirm('¿Limpiar historial?')) return;
+  historial=[]; saveH(); renderHistorial();
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tabPolizas').style.display = tab==='polizas'?'':'none';
+  document.getElementById('tabHistorial').style.display = tab==='historial'?'':'none';
+  if (tab==='historial') renderHistorial();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+function refresh() { renderPanelAccion(); renderStats(); renderTable(); }
+document.getElementById('modalOverlay').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+document.getElementById('renovarOverlay').addEventListener('click', e => { if(e.target===e.currentTarget) closeRenovar(); });
+loadData(); refresh();
+</script>
+</body>
+</html>
