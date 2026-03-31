@@ -1012,13 +1012,17 @@ function buildWaMsgCancelada(p) {
 }
 
 function registrarWA(idx) {
-  const p = polizas[idx];
-  historial.unshift({
+  var p = polizas[idx];
+  var h = {
     id: 'h'+Date.now(), fecha: new Date().toLocaleString('es-AR'),
     nombre: p.nombre, npoliza: p.npoliza, compania: p.compania,
     proxVto: fechaProximo(p), medioPago: p.medioPago, email: p.email||null
-  });
-  saveH();
+  };
+  historial.unshift(h);
+  apiFetch('/api/historial', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(h)
+  }).catch(function(e) { console.warn('historial error:', e); });
 }
 
 // ─── TABLE ────────────────────────────────────────────────────────────────────
@@ -1185,12 +1189,23 @@ function savePoliza() {
     notificado: editIdx !== null ? (polizas[editIdx].notificado||false) : false,
     notas: document.getElementById('fNotas').value.trim()
   };
-  if (editIdx !== null) polizas[editIdx] = rec; else polizas.push(rec);
-  save(); closeModal(); refresh();
+  apiFetch('/api/polizas', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(rec)
+  }).then(function() {
+    if (editIdx !== null) { polizas[editIdx] = rec; } else { polizas.push(rec); }
+    closeModal(); refresh();
+  }).catch(function(e) {
+    alert('Error al guardar la póliza. Verificá tu conexión a internet.');
+    console.error(e);
+  });
 }
 function delPoliza(idx) {
-  if (!confirm(`¿Eliminar la póliza de ${polizas[idx].nombre}?`)) return;
-  polizas.splice(idx,1); save(); refresh();
+  if (!confirm('¿Eliminar la póliza de ' + polizas[idx].nombre + '?')) return;
+  var id = polizas[idx].id;
+  apiFetch('/api/polizas/' + id, {method: 'DELETE'})
+    .then(function() { polizas.splice(idx, 1); refresh(); })
+    .catch(function(e) { alert('Error al eliminar.'); console.error(e); });
 }
 
 // ─── MODAL RENOVAR ────────────────────────────────────────────────────────────
